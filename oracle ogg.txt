@@ -1,0 +1,48 @@
+GoldenGate需要从在线日子或归档日志抽取捕获系统的变更数据信息，这些信息可能来源于业务用户，
+可能来源于系统用户，为了使GoldenGate能够抽取这些数据应为GoldenGate创建独立的用户和分配必要的权限以满足系统运行需求，
+这些权限包括读取业务用户表数据的权限、读取系统表的权限、执行某个系统包的权限等，以下脚步创建GoldenGate用户ogg_owner(源用户)、
+ogg_trg(目标用户)和GoldenGate角色ogg_role:
+
+查看oracle版本
+select * from v$version;
+
+
+sqlplus / as sysdba
+create tablespace tbs01 datafile '/u01/app/oracle/oradata/tbs01/tbs01.dbf' size 10m autoextend on next 2m maxsize unlimited;
+create user ogg_owner identified by ogg_owner default tablespace tbs01 quota unlimited on tbs01;
+create user ogg_trg identified by ogg_trg default tablespace tbs01 quota unlimited on tbs01;
+create role ogg_role;
+
+为易管理和维护统一将权限赋予角色ogg_role:
+
+grant 
+CREATE SESSION,
+ALTER SESSION,
+ALTER SYSTEM,
+RESOURCE,
+SELECT ANY DICTIONARY,
+FLASHBACK ANY TABLE,
+SELECT ANY TABLE,
+SELECT ANY TRANSACTION,
+insert any table,
+update any table,
+drop any table,
+CREATE TABLE
+to ogg_role;
+grant SELECT on dba_clusters to ogg_role;
+grant SELECT on V_$DATABASE to ogg_role;
+grant select on sys.logmnr_buildlog to ogg_role;
+grant EXECUTE on DBMS_FLASHBACK to ogg_role;
+grant execute on DBMS_CAPTURE_ADM to ogg_role;
+grant execute on DBMS_STREAMS to ogg_role;  
+grant EXECUTE_CATALOG_ROLE to ogg_role;
+
+然后再将ogg_role 角色赋予ogg_owner(源用户)和ogg_trg(目标用户):
+
+grant ogg_role to ogg_owner;
+grant ogg_role to ogg_trg;
+
+源用户测试表和数据:
+
+SYS@sydb>create table ogg_owner.togg(id primary key,name,type,CREATED,update_date) as select object_id,object_name,object_type,CREATED,sysdate from dba_objects where rownum<1001
+
